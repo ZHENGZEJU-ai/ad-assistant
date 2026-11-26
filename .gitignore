@@ -1,0 +1,17 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.log
+*.bak
+data/.vectors_ckpt.npz
+data/*.tmp.npz
+.DS_Store
+.vscode/
+.idea/
+
+# Keep the source corpus in Git, following the reference repository's data policy.
+PDFs/*
+!PDFs/electroadhesion/
+
