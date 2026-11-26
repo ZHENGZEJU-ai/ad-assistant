@@ -32,6 +32,40 @@ _STOP = {
 }
 _TOKEN_RE = re.compile(r"[A-Za-z][A-Za-z0-9\-_.]*|\d+(?:\.\d+)?|[一-鿿]+")
 
+# Render 上未配置 LLM key 时，中译英扩写会降级为原问题；而论文正文主要是英文，
+# FTS5 的 unicode61 也不会把中文句子切成可匹配的词。为常见静电吸附术语提供
+# 本地、无外部服务依赖的检索词，确保中文问题在关键词模式下也能召回英文论文。
+_ZH_SEARCH_TERMS = {
+    "静电吸附": "electroadhesion electrostatic adhesion",
+    "电粘附": "electroadhesion electrostatic adhesion",
+    "静电夹持": "electroadhesion gripper electrostatic gripping",
+    "电粘附夹持": "electroadhesion gripper electrostatic gripping",
+    "吸附力": "adhesion force holding force",
+    "夹持力": "gripping force holding force",
+    "夹持器": "gripper",
+    "夹持": "gripping grasping",
+    "吸附": "adhesion",
+    "介电": "dielectric",
+    "电极": "electrode",
+    "电场": "electric field",
+    "电压": "voltage",
+    "机器人": "robot robotic",
+    "柔性": "flexible soft",
+    "释放": "release detachment",
+    "可靠性": "reliability",
+    "响应时间": "response time",
+    "接触面积": "contact area",
+    "材料": "material",
+    "性能": "performance",
+    "应用": "application",
+}
+
+
+def expand_chinese_terms(q: str) -> str:
+    """将常见中文领域词并入查询，避免缺少 LLM 凭据时中文检索零召回。"""
+    terms = [english for chinese, english in _ZH_SEARCH_TERMS.items() if chinese in (q or "")]
+    return f"{q} {' '.join(terms)}" if terms else q
+
 
 def tokenize(q: str) -> List[str]:
     out = []
@@ -292,6 +326,8 @@ class Index:
         year_max: Optional[int] = None,
         category: Optional[str] = None,
     ) -> List[Hit]:
+        # 若动态扩写不可用，保留用户原问题并加入静态中英术语映射作为召回兜底。
+        query = expand_chinese_terms(query)
         kw = self.keyword_search(query, config.K_KEYWORD, tier, category)
         vec = self.vector_search(query, config.K_VECTOR, tier, category)
         fused = rrf_fuse([
